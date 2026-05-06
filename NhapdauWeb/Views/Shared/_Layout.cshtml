@@ -15,42 +15,50 @@
     <link rel="stylesheet" href="~/NhapdauWeb.styles.css" asp-append-version="true" />
 </head>
 <body>
-    <header>
-        <nav class="navbar navbar-expand-sm navbar-dark shadow-sm">
-            <div class="container-fluid">
-                <a class="navbar-brand d-flex align-items-center" asp-area="" asp-controller="Home" asp-action="Index">
-                    <i class="bi bi-droplet-fill me-2"></i>
-                    <span>NhapdauWeb</span>
-                </a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse"
-                        aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-between">
-                    <ul class="navbar-nav flex-grow-1">
-                        <li class="nav-item">
-                            <a class="nav-link" asp-area="" asp-controller="Home" asp-action="Index">
-                                <i class="bi bi-database me-1"></i> BB Oil
-                            </a>
-                        </li>
-                    </ul>
+    <!-- Top Header Bar -->
+    <header class="top-header">
+        <div class="container-fluid d-flex align-items-center justify-content-between px-4">
+            <div class="d-flex align-items-center">
+                <img src="~/images/logo.png" alt="Logo" class="header-logo" />
+                <div class="header-brand">
+                    <span class="brand-name">NhapdauWeb</span>
+                    <span class="brand-sub">Hệ thống quản lý nhập dầu</span>
                 </div>
             </div>
-        </nav>
+            <nav class="header-nav d-none d-md-flex align-items-center">
+                <a class="header-nav-link active" asp-area="" asp-controller="Home" asp-action="Index">
+                    <i class="bi bi-database me-1"></i> BB Oil
+                </a>
+            </nav>
+            <button class="navbar-toggler d-md-none" type="button" data-bs-toggle="collapse" data-bs-target="#mobileNav"
+                    aria-expanded="false" aria-label="Toggle navigation">
+                <i class="bi bi-list fs-4 text-white"></i>
+            </button>
+        </div>
+        <div class="collapse d-md-none" id="mobileNav">
+            <div class="px-4 pb-3">
+                <a class="header-nav-link active d-block" asp-area="" asp-controller="Home" asp-action="Index">
+                    <i class="bi bi-database me-1"></i> BB Oil
+                </a>
+            </div>
+        </div>
     </header>
 
     <!-- Toast container -->
     <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
 
-    <div class="container">
-        <main role="main" class="pb-3">
-            @RenderBody()
-        </main>
+    <div class="main-content">
+        <div class="container-fluid px-4">
+            <main role="main" class="pb-3">
+                @RenderBody()
+            </main>
+        </div>
     </div>
 
     <footer class="footer text-muted">
         <div class="container d-flex align-items-center justify-content-center">
-            <i class="bi bi-gear-fill me-2"></i> &copy; 2026 - NhapdauWeb
+            <img src="~/images/logo.png" alt="Logo" style="height: 20px; margin-right: 8px;" />
+            &copy; 2026 - NhapdauWeb
         </div>
     </footer>
 

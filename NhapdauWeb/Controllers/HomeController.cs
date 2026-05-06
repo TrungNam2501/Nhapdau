@@ -63,6 +63,18 @@ public class HomeController : Controller
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
+        // Kiểm tra HMI Barcode đã tồn tại chưa
+        using var cmdCheck = new SqlCommand(
+            "SELECT COUNT(1) FROM [BB].[dbo].[bb_Oil] WHERE [HMI_Barcode] = @hmiBarcode",
+            connection);
+        cmdCheck.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
+        var existsCount = (int)(await cmdCheck.ExecuteScalarAsync() ?? 0);
+        if (existsCount > 0)
+        {
+            TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' đã tồn tại trong hệ thống. Không thể nhập trùng.";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+
         // Get the latest record's Indat, Intime and Result_ActiveUp
         using var cmdLatest = new SqlCommand(
             @"SELECT TOP 1 [Indat], [Intime], [Result_ActiveUp]
