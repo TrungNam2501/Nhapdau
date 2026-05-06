@@ -6,6 +6,22 @@
 <div class="container mt-4">
     <h2 class="mb-4">Tra cứu dữ liệu BB Oil</h2>
 
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            @Model.ErrorMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    {
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            @Model.SuccessMessage
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+    }
+
     <div class="row mb-4">
         <div class="col-md-6">
             <form method="get" asp-action="Index">
@@ -26,6 +42,35 @@
 
     @if (!string.IsNullOrEmpty(Model.SelectedBarcode))
     {
+        <!-- Form nhập mới -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <strong>Nhập mới HMI Barcode</strong>
+            </div>
+            <div class="card-body">
+                <form method="post" asp-action="Insert" id="insertForm">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="selectedBarcode" value="@Model.SelectedBarcode" />
+                    <div class="row align-items-end">
+                        <div class="col-md-6">
+                            <label for="newHmiBarcode" class="form-label">HMI Barcode:</label>
+                            <input type="text" class="form-control" id="newHmiBarcode" name="newHmiBarcode"
+                                   placeholder="Nhập HMI Barcode (phải bắt đầu bằng '@Model.SelectedBarcode')" required />
+                            <div class="form-text">
+                                Ký tự đầu phải giống với <strong>@Model.SelectedBarcode</strong>.
+                                Thời gian sẽ tự động = bản ghi mới nhất + 5 phút.
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-circle"></i> Nhập mới
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
         <div class="alert alert-info">
             <strong>Đang lọc theo:</strong> @Model.SelectedBarcode
             — <strong>Tổng số bản ghi:</strong> @Model.OilRecords.Count
@@ -41,13 +86,14 @@
                         <th>Result ActiveUp</th>
                         <th>HMI Barcode</th>
                         <th>Barcode Left 7bit</th>
+                        <th style="width: 80px;">Xóa</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (Model.OilRecords.Count == 0)
                     {
                         <tr>
-                            <td colspan="6" class="text-center text-muted">Không có dữ liệu.</td>
+                            <td colspan="7" class="text-center text-muted">Không có dữ liệu.</td>
                         </tr>
                     }
                     else
@@ -61,6 +107,17 @@
                                 <td>@record.Result_ActiveUp</td>
                                 <td>@record.HMI_Barcode</td>
                                 <td>@record.Barcode_left_7bit</td>
+                                <td class="text-center">
+                                    <form method="post" asp-action="Delete" style="display:inline;"
+                                          onsubmit="return confirm('Bạn có chắc chắn muốn xóa bản ghi ID = @record.ID?');">
+                                        @Html.AntiForgeryToken()
+                                        <input type="hidden" name="id" value="@record.ID" />
+                                        <input type="hidden" name="selectedBarcode" value="@Model.SelectedBarcode" />
+                                        <button type="submit" class="btn btn-danger btn-sm" title="Xóa">
+                                            <i class="bi bi-trash"></i> Xóa
+                                        </button>
+                                    </form>
+                                </td>
                             </tr>
                         }
                     }
@@ -85,6 +142,17 @@
 
             $('.select2-dropdown').on('select2:select select2:clear', function () {
                 $(this).closest('form').submit();
+            });
+
+            // Client-side validation for HMI Barcode prefix
+            $('#insertForm').on('submit', function (e) {
+                var barcode = '@Model.SelectedBarcode';
+                var hmiBarcode = $('#newHmiBarcode').val();
+                if (barcode && hmiBarcode && !hmiBarcode.toLowerCase().startsWith(barcode.toLowerCase())) {
+                    e.preventDefault();
+                    alert('HMI Barcode phải bắt đầu bằng "' + barcode + '"!');
+                    return false;
+                }
             });
         });
     </script>
