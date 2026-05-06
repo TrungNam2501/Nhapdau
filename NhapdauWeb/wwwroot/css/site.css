@@ -1,10 +1,10 @@
 /* ===== Base & Typography ===== */
 :root {
-    --primary: #4f46e5;
-    --primary-dark: #4338ca;
-    --primary-light: #818cf8;
-    --gradient: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
-    --gradient-soft: linear-gradient(135deg, #e0e7ff 0%, #ede9fe 100%);
+    --primary: #0369a1;
+    --primary-dark: #075985;
+    --primary-light: #38bdf8;
+    --gradient: linear-gradient(135deg, #0369a1 0%, #0891b2 100%);
+    --gradient-soft: linear-gradient(135deg, #e0f2fe 0%, #cffafe 100%);
     --success: #10b981;
     --danger: #ef4444;
     --warning: #f59e0b;
@@ -140,7 +140,7 @@ body {
 
 .btn-primary:hover {
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(79, 70, 229, 0.4);
+    box-shadow: 0 4px 12px rgba(3, 105, 161, 0.4);
 }
 
 .btn-danger {
@@ -159,7 +159,7 @@ body {
 .form-control:focus,
 .form-check-input:focus,
 .form-select:focus {
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25);
+    box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.25);
 }
 
 /* ===== Forms ===== */
@@ -187,10 +187,15 @@ body {
 }
 
 /* ===== Tables ===== */
-.table-responsive {
+.table-scroll-container {
     border-radius: var(--radius);
-    overflow: hidden;
     box-shadow: var(--shadow);
+    overflow: hidden;
+}
+
+.table-scroll-wrapper {
+    max-height: 500px;
+    overflow-y: auto;
 }
 
 .table {
@@ -204,6 +209,9 @@ body {
     letter-spacing: 0.02em;
     padding: 0.85rem 1rem;
     white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 10;
 }
 
 .table tbody tr {
@@ -265,7 +273,7 @@ body {
 /* ===== Info Badge ===== */
 .info-badge {
     background: var(--gradient-soft);
-    border: 1px solid #c7d2fe;
+    border: 1px solid #bae6fd;
     border-radius: var(--radius);
     padding: 0.85rem 1.25rem;
     color: var(--primary-dark);
@@ -343,7 +351,7 @@ body {
 .select2-container--bootstrap-5 .select2-selection:focus,
 .select2-container--bootstrap-5.select2-container--focus .select2-selection {
     border-color: var(--primary-light) !important;
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.25) !important;
+    box-shadow: 0 0 0 3px rgba(3, 105, 161, 0.25) !important;
 }
 
 .select2-container--bootstrap-5 .select2-dropdown {
@@ -396,5 +404,9 @@ body {
 
     .toast-custom {
         min-width: 280px;
+    }
+
+    .table-scroll-wrapper {
+        max-height: 400px;
     }
 }

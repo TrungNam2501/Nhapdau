@@ -5,17 +5,17 @@ a.navbar-brand {
 }
 
 a {
-    color: #4f46e5;
+    color: #0369a1;
     transition: color 0.2s ease;
 }
 
 a:hover {
-    color: #4338ca;
+    color: #075985;
 }
 
 .nav-pills .nav-link.active, .nav-pills .show > .nav-link {
     color: #fff;
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background: linear-gradient(135deg, #0369a1, #0891b2);
     border: none;
 }
 
