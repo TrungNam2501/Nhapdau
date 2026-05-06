@@ -1,0 +1,91 @@
+@model NhapdauWeb.Models.OilViewModel
+@{
+    ViewData["Title"] = "BB Oil - Tra cứu dữ liệu";
+}
+
+<div class="container mt-4">
+    <h2 class="mb-4">Tra cứu dữ liệu BB Oil</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <form method="get" asp-action="Index">
+                <div class="input-group">
+                    <label class="input-group-text" for="selectedBarcode">Barcode (7 bit):</label>
+                    <select name="selectedBarcode" id="selectedBarcode" class="form-select select2-dropdown"
+                            onchange="this.form.submit()">
+                        <option value="">-- Chọn Barcode --</option>
+                        @foreach (var item in Model.BarcodeList)
+                        {
+                            <option value="@item.Value" selected="@item.Selected">@item.Text</option>
+                        }
+                    </select>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(Model.SelectedBarcode))
+    {
+        <div class="alert alert-info">
+            <strong>Đang lọc theo:</strong> @Model.SelectedBarcode
+            — <strong>Tổng số bản ghi:</strong> @Model.OilRecords.Count
+        </div>
+
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th>ID</th>
+                        <th>Ngày nhập (Indat)</th>
+                        <th>Thời gian (Intime)</th>
+                        <th>Result ActiveUp</th>
+                        <th>HMI Barcode</th>
+                        <th>Barcode Left 7bit</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (Model.OilRecords.Count == 0)
+                    {
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">Không có dữ liệu.</td>
+                        </tr>
+                    }
+                    else
+                    {
+                        @foreach (var record in Model.OilRecords)
+                        {
+                            <tr>
+                                <td>@record.ID</td>
+                                <td>@record.Indat</td>
+                                <td>@record.Intime</td>
+                                <td>@record.Result_ActiveUp</td>
+                                <td>@record.HMI_Barcode</td>
+                                <td>@record.Barcode_left_7bit</td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    }
+</div>
+
+@section Scripts {
+    <!-- Select2 CSS & JS -->
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+    <script>
+        $(document).ready(function () {
+            $('.select2-dropdown').select2({
+                theme: 'bootstrap-5',
+                placeholder: '-- Chọn Barcode --',
+                allowClear: true
+            });
+
+            $('.select2-dropdown').on('select2:select select2:clear', function () {
+                $(this).closest('form').submit();
+            });
+        });
+    </script>
+}
