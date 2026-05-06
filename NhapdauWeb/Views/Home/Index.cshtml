@@ -1,4 +1,4 @@
-@model NhapdauWeb.Models.OilViewModel
+﻿@model NhapdauWeb.Models.OilViewModel
 @{
     ViewData["Title"] = "BB Oil - Tra cuu du lieu";
 }
@@ -6,7 +6,7 @@
 <div class="container mt-4">
     <div class="d-flex align-items-center mb-4 animate-fade-in-up">
         <h2 class="page-title mb-0">
-            <i class="bi bi-droplet-half"></i> Tra cuu du lieu BB Oil
+            <i class="bi bi-droplet-half"></i> Nhập bù dữ liệu dầu
         </h2>
     </div>
 
@@ -22,7 +22,7 @@
                             <span class="input-group-text"><i class="bi bi-search"></i></span>
                             <select name="selectedBarcode" id="selectedBarcode" class="form-select select2-dropdown"
                                     onchange="this.form.submit()">
-                                <option value="">-- Chon Barcode --</option>
+                                <option value="">-- Chon loại dầu --</option>
                                 @foreach (var item in Model.BarcodeList)
                                 {
                                     <option value="@item.Value" selected="@item.Selected">@item.Text</option>
