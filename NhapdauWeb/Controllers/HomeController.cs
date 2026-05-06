@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
@@ -22,61 +23,142 @@ public class HomeController : Controller
     {
         var viewModel = new OilViewModel
         {
-            SelectedBarcode = selectedBarcode
+            SelectedBarcode = selectedBarcode,
+            ErrorMessage = TempData["ErrorMessage"] as string,
+            SuccessMessage = TempData["SuccessMessage"] as string
         };
 
-        // Load distinct Barcode_left_7bit for dropdown
-        using (var connection = new SqlConnection(_connectionString))
-        {
-            await connection.OpenAsync();
+        await LoadBarcodeList(viewModel, selectedBarcode);
 
-            using var cmdDistinct = new SqlCommand(
-                "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [Barcode_left_7bit] IS NOT NULL ORDER BY [Barcode_left_7bit]",
-                connection);
-            using var reader = await cmdDistinct.ExecuteReaderAsync();
-
-            while (await reader.ReadAsync())
-            {
-                var value = reader.GetString(0);
-                viewModel.BarcodeList.Add(new SelectListItem
-                {
-                    Value = value,
-                    Text = value,
-                    Selected = value == selectedBarcode
-                });
-            }
-        }
-
-        // If a barcode is selected, load filtered records
         if (!string.IsNullOrEmpty(selectedBarcode))
         {
-            using var connection = new SqlConnection(_connectionString);
-            await connection.OpenAsync();
-
-            using var cmd = new SqlCommand(
-                @"SELECT [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit]
-                  FROM [BB].[dbo].[bb_Oil]
-                  WHERE [Barcode_left_7bit] = @barcode
-                  ORDER BY [Indat] DESC, [Intime] DESC",
-                connection);
-            cmd.Parameters.AddWithValue("@barcode", selectedBarcode);
-
-            using var reader = await cmd.ExecuteReaderAsync();
-            while (await reader.ReadAsync())
-            {
-                viewModel.OilRecords.Add(new BbOil
-                {
-                    ID = reader.GetInt32(0),
-                    Indat = reader.IsDBNull(1) ? null : reader.GetString(1),
-                    Intime = reader.IsDBNull(2) ? null : reader.GetString(2),
-                    Result_ActiveUp = reader.IsDBNull(3) ? null : reader.GetString(3),
-                    HMI_Barcode = reader.IsDBNull(4) ? null : reader.GetString(4),
-                    Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5)
-                });
-            }
+            await LoadOilRecords(viewModel, selectedBarcode);
         }
 
         return View(viewModel);
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Insert(string selectedBarcode, string newHmiBarcode)
+    {
+        if (string.IsNullOrEmpty(selectedBarcode))
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn Barcode trước khi nhập mới.";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+
+        if (string.IsNullOrWhiteSpace(newHmiBarcode))
+        {
+            TempData["ErrorMessage"] = "Vui lòng nhập HMI Barcode.";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+
+        if (!newHmiBarcode.StartsWith(selectedBarcode, StringComparison.OrdinalIgnoreCase))
+        {
+            TempData["ErrorMessage"] = $"HMI Barcode phải bắt đầu bằng '{selectedBarcode}'. Giá trị nhập: '{newHmiBarcode}'";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        // Get the latest record's Indat and Intime
+        using var cmdLatest = new SqlCommand(
+            @"SELECT TOP 1 [Indat], [Intime]
+              FROM [BB].[dbo].[bb_Oil]
+              WHERE [Barcode_left_7bit] = @barcode
+              ORDER BY [Indat] DESC, [Intime] DESC",
+            connection);
+        cmdLatest.Parameters.AddWithValue("@barcode", selectedBarcode);
+
+        string newIndat;
+        string newIntime;
+
+        using (var reader = await cmdLatest.ExecuteReaderAsync())
+        {
+            if (await reader.ReadAsync())
+            {
+                var latestIndat = reader.IsDBNull(0) ? null : reader.GetString(0);
+                var latestIntime = reader.IsDBNull(1) ? null : reader.GetString(1);
+
+                if (!string.IsNullOrEmpty(latestIndat) && !string.IsNullOrEmpty(latestIntime))
+                {
+                    // Parse date (yyyyMMdd) and time (HH:mm:ss)
+                    if (DateTime.TryParseExact(
+                            latestIndat + latestIntime,
+                            new[] { "yyyyMMddHH:mm:ss", "yyyyMMddHHmmss" },
+                            CultureInfo.InvariantCulture,
+                            DateTimeStyles.None,
+                            out var latestDateTime))
+                    {
+                        var newDateTime = latestDateTime.AddMinutes(5);
+                        newIndat = newDateTime.ToString("yyyyMMdd");
+                        newIntime = newDateTime.ToString("HH:mm:ss");
+                    }
+                    else
+                    {
+                        TempData["ErrorMessage"] = $"Không thể parse thời gian từ dữ liệu mới nhất: Indat='{latestIndat}', Intime='{latestIntime}'";
+                        return RedirectToAction("Index", new { selectedBarcode });
+                    }
+                }
+                else
+                {
+                    var now = DateTime.Now;
+                    newIndat = now.ToString("yyyyMMdd");
+                    newIntime = now.ToString("HH:mm:ss");
+                }
+            }
+            else
+            {
+                var now = DateTime.Now;
+                newIndat = now.ToString("yyyyMMdd");
+                newIntime = now.ToString("HH:mm:ss");
+            }
+        }
+
+        // Insert new record
+        using var cmdInsert = new SqlCommand(
+            @"INSERT INTO [BB].[dbo].[bb_Oil] ([Indat], [Intime], [HMI_Barcode], [Barcode_left_7bit])
+              VALUES (@indat, @intime, @hmiBarcode, @barcode)",
+            connection);
+        cmdInsert.Parameters.AddWithValue("@indat", newIndat);
+        cmdInsert.Parameters.AddWithValue("@intime", newIntime);
+        cmdInsert.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
+        cmdInsert.Parameters.AddWithValue("@barcode", selectedBarcode);
+
+        await cmdInsert.ExecuteNonQueryAsync();
+
+        TempData["SuccessMessage"] = $"Đã nhập mới thành công! HMI Barcode: {newHmiBarcode}, Ngày: {newIndat}, Giờ: {newIntime}";
+        return RedirectToAction("Index", new { selectedBarcode });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> Delete(int id, string? selectedBarcode)
+    {
+        if (id <= 0)
+        {
+            TempData["ErrorMessage"] = "ID không hợp lệ.";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        using var cmd = new SqlCommand(
+            "DELETE FROM [BB].[dbo].[bb_Oil] WHERE [ID] = @id",
+            connection);
+        cmd.Parameters.AddWithValue("@id", id);
+
+        var rowsAffected = await cmd.ExecuteNonQueryAsync();
+
+        if (rowsAffected > 0)
+            TempData["SuccessMessage"] = $"Đã xóa bản ghi ID = {id} thành công.";
+        else
+            TempData["ErrorMessage"] = $"Không tìm thấy bản ghi ID = {id} để xóa.";
+
+        return RedirectToAction("Index", new { selectedBarcode });
     }
 
     public IActionResult Privacy()
@@ -88,5 +170,55 @@ public class HomeController : Controller
     public IActionResult Error()
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+    }
+
+    private async Task LoadBarcodeList(OilViewModel viewModel, string? selectedBarcode)
+    {
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        using var cmd = new SqlCommand(
+            "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [Barcode_left_7bit] IS NOT NULL ORDER BY [Barcode_left_7bit]",
+            connection);
+        using var reader = await cmd.ExecuteReaderAsync();
+
+        while (await reader.ReadAsync())
+        {
+            var value = reader.GetString(0);
+            viewModel.BarcodeList.Add(new SelectListItem
+            {
+                Value = value,
+                Text = value,
+                Selected = value == selectedBarcode
+            });
+        }
+    }
+
+    private async Task LoadOilRecords(OilViewModel viewModel, string selectedBarcode)
+    {
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        using var cmd = new SqlCommand(
+            @"SELECT [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit]
+              FROM [BB].[dbo].[bb_Oil]
+              WHERE [Barcode_left_7bit] = @barcode
+              ORDER BY [Indat] DESC, [Intime] DESC",
+            connection);
+        cmd.Parameters.AddWithValue("@barcode", selectedBarcode);
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        while (await reader.ReadAsync())
+        {
+            viewModel.OilRecords.Add(new BbOil
+            {
+                ID = reader.GetInt32(0),
+                Indat = reader.IsDBNull(1) ? null : reader.GetString(1),
+                Intime = reader.IsDBNull(2) ? null : reader.GetString(2),
+                Result_ActiveUp = reader.IsDBNull(3) ? null : reader.GetString(3),
+                HMI_Barcode = reader.IsDBNull(4) ? null : reader.GetString(4),
+                Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5)
+            });
+        }
     }
 }
