@@ -63,9 +63,9 @@ public class HomeController : Controller
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        // Get the latest record's Indat and Intime
+        // Get the latest record's Indat, Intime and Result_ActiveUp
         using var cmdLatest = new SqlCommand(
-            @"SELECT TOP 1 [Indat], [Intime]
+            @"SELECT TOP 1 [Indat], [Intime], [Result_ActiveUp]
               FROM [BB].[dbo].[bb_Oil]
               WHERE [Barcode_left_7bit] = @barcode
               ORDER BY [Indat] DESC, [Intime] DESC",
@@ -74,6 +74,7 @@ public class HomeController : Controller
 
         string newIndat;
         string newIntime;
+        string? resultActiveUp = null;
 
         using (var reader = await cmdLatest.ExecuteReaderAsync())
         {
@@ -81,10 +82,10 @@ public class HomeController : Controller
             {
                 var latestIndat = reader.IsDBNull(0) ? null : reader.GetString(0);
                 var latestIntime = reader.IsDBNull(1) ? null : reader.GetString(1);
+                resultActiveUp = reader.IsDBNull(2) ? null : reader.GetString(2);
 
                 if (!string.IsNullOrEmpty(latestIndat) && !string.IsNullOrEmpty(latestIntime))
                 {
-                    // Parse date (yyyyMMdd) and time (HH:mm:ss)
                     if (DateTime.TryParseExact(
                             latestIndat + latestIntime,
                             new[] { "yyyyMMddHH:mm:ss", "yyyyMMddHHmmss" },
@@ -117,19 +118,24 @@ public class HomeController : Controller
             }
         }
 
-        // Insert new record
+        // Insert new record with Result_ActiveUp from latest
         using var cmdInsert = new SqlCommand(
-            @"INSERT INTO [BB].[dbo].[bb_Oil] ([Indat], [Intime], [HMI_Barcode], [Barcode_left_7bit])
-              VALUES (@indat, @intime, @hmiBarcode, @barcode)",
+            @"INSERT INTO [BB].[dbo].[bb_Oil] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit])
+              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode);
+              SELECT SCOPE_IDENTITY();",
             connection);
         cmdInsert.Parameters.AddWithValue("@indat", newIndat);
         cmdInsert.Parameters.AddWithValue("@intime", newIntime);
+        cmdInsert.Parameters.AddWithValue("@resultActiveUp", (object?)resultActiveUp ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
         cmdInsert.Parameters.AddWithValue("@barcode", selectedBarcode);
 
-        await cmdInsert.ExecuteNonQueryAsync();
+        var newId = Convert.ToInt32(await cmdInsert.ExecuteScalarAsync());
 
-        TempData["SuccessMessage"] = $"Đã nhập mới thành công! HMI Barcode: {newHmiBarcode}, Ngày: {newIndat}, Giờ: {newIntime}";
+        // Log the insert action
+        await WriteLog(connection, "INSERT", newId, newIndat, newIntime, resultActiveUp, newHmiBarcode, selectedBarcode);
+
+        TempData["SuccessMessage"] = $"Đã nhập mới thành công! ID: {newId}, HMI Barcode: {newHmiBarcode}, Ngày: {newIndat}, Giờ: {newIntime}, Result_ActiveUp: {resultActiveUp ?? "(trống)"}";
         return RedirectToAction("Index", new { selectedBarcode });
     }
 
@@ -146,6 +152,24 @@ public class HomeController : Controller
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
+        // Read the record before deleting for logging
+        string? indat = null, intime = null, resultActiveUp = null, hmiBarcode = null, barcodeLeft7bit = null;
+        using (var cmdRead = new SqlCommand(
+            "SELECT [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [ID] = @id",
+            connection))
+        {
+            cmdRead.Parameters.AddWithValue("@id", id);
+            using var reader = await cmdRead.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                indat = reader.IsDBNull(0) ? null : reader.GetString(0);
+                intime = reader.IsDBNull(1) ? null : reader.GetString(1);
+                resultActiveUp = reader.IsDBNull(2) ? null : reader.GetString(2);
+                hmiBarcode = reader.IsDBNull(3) ? null : reader.GetString(3);
+                barcodeLeft7bit = reader.IsDBNull(4) ? null : reader.GetString(4);
+            }
+        }
+
         using var cmd = new SqlCommand(
             "DELETE FROM [BB].[dbo].[bb_Oil] WHERE [ID] = @id",
             connection);
@@ -154,9 +178,15 @@ public class HomeController : Controller
         var rowsAffected = await cmd.ExecuteNonQueryAsync();
 
         if (rowsAffected > 0)
+        {
+            // Log the delete action
+            await WriteLog(connection, "DELETE", id, indat, intime, resultActiveUp, hmiBarcode, barcodeLeft7bit);
             TempData["SuccessMessage"] = $"Đã xóa bản ghi ID = {id} thành công.";
+        }
         else
+        {
             TempData["ErrorMessage"] = $"Không tìm thấy bản ghi ID = {id} để xóa.";
+        }
 
         return RedirectToAction("Index", new { selectedBarcode });
     }
@@ -220,5 +250,48 @@ public class HomeController : Controller
                 Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5)
             });
         }
+    }
+
+    private async Task EnsureLogTableExists(SqlConnection connection)
+    {
+        using var cmd = new SqlCommand(
+            @"IF NOT EXISTS (SELECT * FROM sys.tables WHERE name = 'bb_Oil_Log' AND schema_id = SCHEMA_ID('dbo'))
+              BEGIN
+                  CREATE TABLE [dbo].[bb_Oil_Log](
+                      [LogID] [int] IDENTITY(1,1) NOT NULL,
+                      [Action] [varchar](10) NOT NULL,
+                      [RecordID] [int] NULL,
+                      [Indat] [varchar](8) NULL,
+                      [Intime] [varchar](8) NULL,
+                      [Result_ActiveUp] [varchar](50) NULL,
+                      [HMI_Barcode] [varchar](50) NULL,
+                      [Barcode_left_7bit] [varchar](50) NULL,
+                      [LogDate] [datetime] NOT NULL DEFAULT(GETDATE()),
+                      [LogUser] [varchar](100) NULL
+                  )
+              END",
+            connection);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
+    private async Task WriteLog(SqlConnection connection, string action, int recordId,
+        string? indat, string? intime, string? resultActiveUp, string? hmiBarcode, string? barcodeLeft7bit)
+    {
+        await EnsureLogTableExists(connection);
+
+        using var cmd = new SqlCommand(
+            @"INSERT INTO [BB].[dbo].[bb_Oil_Log] ([Action], [RecordID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [LogUser])
+              VALUES (@action, @recordId, @indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @logUser)",
+            connection);
+        cmd.Parameters.AddWithValue("@action", action);
+        cmd.Parameters.AddWithValue("@recordId", recordId);
+        cmd.Parameters.AddWithValue("@indat", (object?)indat ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@intime", (object?)intime ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@resultActiveUp", (object?)resultActiveUp ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@hmiBarcode", (object?)hmiBarcode ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@barcode", (object?)barcodeLeft7bit ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@logUser", Environment.UserName);
+
+        await cmd.ExecuteNonQueryAsync();
     }
 }
