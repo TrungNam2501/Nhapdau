@@ -46,9 +46,9 @@
     {
         <!-- Insert Form -->
         <div class="col-lg-7 animate-fade-in-up animate-delay-2">
-            <div class="card h-100">
+            <div class="card card-insert h-100">
                 <div class="card-body">
-                    <h6 class="card-label">
+                    <h6 class="card-label card-label-insert">
                         <i class="bi bi-plus-circle-fill"></i> Nhập mới HMI Barcode
                     </h6>
                     <form method="post" asp-action="Insert" id="insertForm">
@@ -62,7 +62,7 @@
                                     Ký tự đầu phải giống với <strong>@Model.SelectedBarcode</strong> · Thời gian tự động +5 phút
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-primary flex-shrink-0">
+                            <button type="submit" class="btn btn-insert flex-shrink-0">
                                 <i class="bi bi-plus-circle me-1"></i> Nhập mới
                             </button>
                         </div>
