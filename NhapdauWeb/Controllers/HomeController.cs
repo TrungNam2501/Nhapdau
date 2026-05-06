@@ -105,7 +105,7 @@ public class HomeController : Controller
                             DateTimeStyles.None,
                             out var latestDateTime))
                     {
-                        var newDateTime = latestDateTime.AddMinutes(5);
+                        var newDateTime = latestDateTime.AddSeconds(1);
                         newIndat = newDateTime.ToString("yyyyMMdd");
                         newIntime = newDateTime.ToString("HH:mm:ss");
                     }
