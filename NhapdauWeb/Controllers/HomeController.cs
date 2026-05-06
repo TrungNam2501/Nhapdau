@@ -214,7 +214,7 @@ public class HomeController : Controller
 
         while (await reader.ReadAsync())
         {
-            var value = reader.GetString(0);
+            var value = reader.GetString(0).Trim();
             viewModel.BarcodeList.Add(new SelectListItem
             {
                 Value = value,
