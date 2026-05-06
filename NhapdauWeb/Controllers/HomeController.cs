@@ -40,7 +40,7 @@ public class HomeController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Insert(string selectedBarcode, string newHmiBarcode)
+    public async Task<IActionResult> Insert(string selectedBarcode, string newHmiBarcode, string? cardNumber)
     {
         if (string.IsNullOrEmpty(selectedBarcode))
         {
@@ -132,8 +132,8 @@ public class HomeController : Controller
 
         var newId = Convert.ToInt32(await cmdInsert.ExecuteScalarAsync());
 
-        // Log the insert action
-        await WriteLog(connection, "INSERT", newId, newIndat, newIntime, resultActiveUp, newHmiBarcode, selectedBarcode);
+        // Log the insert action with card number
+        await WriteLog(connection, "INSERT", newId, newIndat, newIntime, resultActiveUp, newHmiBarcode, selectedBarcode, cardNumber);
 
         TempData["SuccessMessage"] = $"Đã nhập mới thành công! ID: {newId}, HMI Barcode: {newHmiBarcode}, Ngày: {newIndat}, Giờ: {newIntime}, Result_ActiveUp: {resultActiveUp ?? "(trống)"}";
         return RedirectToAction("Index", new { selectedBarcode });
@@ -141,7 +141,7 @@ public class HomeController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> Delete(int id, string? selectedBarcode)
+    public async Task<IActionResult> Delete(int id, string? selectedBarcode, string? cardNumber)
     {
         if (id <= 0)
         {
@@ -179,8 +179,7 @@ public class HomeController : Controller
 
         if (rowsAffected > 0)
         {
-            // Log the delete action
-            await WriteLog(connection, "DELETE", id, indat, intime, resultActiveUp, hmiBarcode, barcodeLeft7bit);
+            await WriteLog(connection, "DELETE", id, indat, intime, resultActiveUp, hmiBarcode, barcodeLeft7bit, cardNumber);
             TempData["SuccessMessage"] = $"Đã xóa bản ghi ID = {id} thành công.";
         }
         else
@@ -266,22 +265,30 @@ public class HomeController : Controller
                       [Result_ActiveUp] [varchar](50) NULL,
                       [HMI_Barcode] [varchar](50) NULL,
                       [Barcode_left_7bit] [varchar](50) NULL,
+                      [CardNumber] [varchar](50) NULL,
                       [LogDate] [datetime] NOT NULL DEFAULT(GETDATE()),
                       [LogUser] [varchar](100) NULL
                   )
+              END
+              ELSE
+              BEGIN
+                  IF NOT EXISTS (SELECT * FROM sys.columns WHERE object_id = OBJECT_ID('dbo.bb_Oil_Log') AND name = 'CardNumber')
+                  BEGIN
+                      ALTER TABLE [dbo].[bb_Oil_Log] ADD [CardNumber] [varchar](50) NULL
+                  END
               END",
             connection);
         await cmd.ExecuteNonQueryAsync();
     }
 
     private async Task WriteLog(SqlConnection connection, string action, int recordId,
-        string? indat, string? intime, string? resultActiveUp, string? hmiBarcode, string? barcodeLeft7bit)
+        string? indat, string? intime, string? resultActiveUp, string? hmiBarcode, string? barcodeLeft7bit, string? cardNumber)
     {
         await EnsureLogTableExists(connection);
 
         using var cmd = new SqlCommand(
-            @"INSERT INTO [BB].[dbo].[bb_Oil_Log] ([Action], [RecordID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [LogUser])
-              VALUES (@action, @recordId, @indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @logUser)",
+            @"INSERT INTO [BB].[dbo].[bb_Oil_Log] ([Action], [RecordID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [CardNumber], [LogUser])
+              VALUES (@action, @recordId, @indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @cardNumber, @logUser)",
             connection);
         cmd.Parameters.AddWithValue("@action", action);
         cmd.Parameters.AddWithValue("@recordId", recordId);
@@ -290,6 +297,7 @@ public class HomeController : Controller
         cmd.Parameters.AddWithValue("@resultActiveUp", (object?)resultActiveUp ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@hmiBarcode", (object?)hmiBarcode ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@barcode", (object?)barcodeLeft7bit ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("@cardNumber", (object?)cardNumber ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@logUser", Environment.UserName);
 
         await cmd.ExecuteNonQueryAsync();
