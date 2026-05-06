@@ -220,7 +220,7 @@ public class HomeController : Controller
         await connection.OpenAsync();
 
         using var cmd = new SqlCommand(
-            "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [Barcode_left_7bit] IS NOT NULL AND [Barcode_left_7bit] LIKE '60%' ORDER BY [Barcode_left_7bit]",
+            "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [Barcode_left_7bit] IS NOT NULL AND [Barcode_left_7bit] LIKE '68%' ORDER BY [Barcode_left_7bit]",
             connection);
         using var reader = await cmd.ExecuteReaderAsync();
 
