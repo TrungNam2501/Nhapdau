@@ -125,65 +125,32 @@ public class HomeController : Controller
             return RedirectToAction("Index", new { selectedBarcode });
         }
 
-        // Get the latest record's Indat, Intime and Result_ActiveUp
-        using var cmdLatest = new SqlCommand(
-            @"SELECT TOP 1 [Indat], [Intime], [Result_ActiveUp]
+        // Indat / Intime = thời gian hiện tại
+        var nowInsert = DateTime.Now;
+        var newIndat = nowInsert.ToString("yyyyMMdd");
+        var newIntime = nowInsert.ToString("HH:mm:ss");
+
+        // Lấy Result_ActiveUp từ bản ghi gần nhất của cùng Barcode 7bit
+        string? resultActiveUp = null;
+        using (var cmdLatest = new SqlCommand(
+            @"SELECT TOP 1 [Result_ActiveUp]
               FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
               ORDER BY [Indat] DESC, [Intime] DESC",
-            connection);
-        cmdLatest.Parameters.AddWithValue("@barcode", selectedBarcode);
-
-        string newIndat;
-        string newIntime;
-        string? resultActiveUp = null;
-
-        using (var reader = await cmdLatest.ExecuteReaderAsync())
+            connection))
         {
-            if (await reader.ReadAsync())
+            cmdLatest.Parameters.AddWithValue("@barcode", selectedBarcode);
+            var latestResult = await cmdLatest.ExecuteScalarAsync();
+            if (latestResult != null && latestResult != DBNull.Value)
             {
-                var latestIndat = reader.IsDBNull(0) ? null : reader.GetString(0);
-                var latestIntime = reader.IsDBNull(1) ? null : reader.GetString(1);
-                resultActiveUp = reader.IsDBNull(2) ? null : reader.GetString(2);
-
-                if (!string.IsNullOrEmpty(latestIndat) && !string.IsNullOrEmpty(latestIntime))
-                {
-                    if (DateTime.TryParseExact(
-                            latestIndat + latestIntime,
-                            new[] { "yyyyMMddHH:mm:ss", "yyyyMMddHHmmss" },
-                            CultureInfo.InvariantCulture,
-                            DateTimeStyles.None,
-                            out var latestDateTime))
-                    {
-                        var newDateTime = latestDateTime.AddSeconds(1);
-                        newIndat = newDateTime.ToString("yyyyMMdd");
-                        newIntime = newDateTime.ToString("HH:mm:ss");
-                    }
-                    else
-                    {
-                        TempData["ErrorMessage"] = $"Không thể parse thời gian từ dữ liệu mới nhất: Indat='{latestIndat}', Intime='{latestIntime}'";
-                        return RedirectToAction("Index", new { selectedBarcode });
-                    }
-                }
-                else
-                {
-                    var now = DateTime.Now;
-                    newIndat = now.ToString("yyyyMMdd");
-                    newIntime = now.ToString("HH:mm:ss");
-                }
-            }
-            else
-            {
-                var now = DateTime.Now;
-                newIndat = now.ToString("yyyyMMdd");
-                newIntime = now.ToString("HH:mm:ss");
+                resultActiveUp = latestResult.ToString();
             }
         }
 
-        // Insert new record with Result_ActiveUp from latest, Sokgtem từ gdtbart.qty
+        // Insert new record: Sokgtem từ gdtbart.qty, sokgsudung = 0, active = 'chưa mở'
         using var cmdInsert = new SqlCommand(
-            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem])
-              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @sokgtem);
+            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active])
+              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @sokgtem, @sokgsudung, @active);
               SELECT SCOPE_IDENTITY();",
             connection);
         cmdInsert.Parameters.AddWithValue("@indat", newIndat);
@@ -192,6 +159,8 @@ public class HomeController : Controller
         cmdInsert.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
         cmdInsert.Parameters.AddWithValue("@barcode", selectedBarcode);
         cmdInsert.Parameters.AddWithValue("@sokgtem", sokgtem);
+        cmdInsert.Parameters.AddWithValue("@sokgsudung", 0d);
+        cmdInsert.Parameters.AddWithValue("@active", "chưa mở");
 
         var newId = Convert.ToInt32(await cmdInsert.ExecuteScalarAsync());
 
