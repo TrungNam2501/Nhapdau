@@ -147,7 +147,7 @@ public class HomeController : Controller
             }
         }
 
-        // Insert new record: Sokgtem từ gdtbart.qty, sokgsudung = 0, active = 'chưa mở'
+        // Insert new record: Sokgtem từ gdtbart.qty, sokgsudung = 0, active = 'mokhoa'
         using var cmdInsert = new SqlCommand(
             @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active])
               VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @sokgtem, @sokgsudung, @active);
@@ -160,7 +160,7 @@ public class HomeController : Controller
         cmdInsert.Parameters.AddWithValue("@barcode", selectedBarcode);
         cmdInsert.Parameters.AddWithValue("@sokgtem", sokgtem);
         cmdInsert.Parameters.AddWithValue("@sokgsudung", 0d);
-        cmdInsert.Parameters.AddWithValue("@active", "chưa mở");
+        cmdInsert.Parameters.AddWithValue("@active", "mokhoa");
 
         var newId = Convert.ToInt32(await cmdInsert.ExecuteScalarAsync());
 
