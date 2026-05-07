@@ -12,6 +12,7 @@ public class HomeController : Controller
     private readonly ILogger<HomeController> _logger;
     private readonly string _connectionString;
     private readonly string _erpConnectionString;
+    private readonly string _erpServer34ConnectionString;
 
     public HomeController(ILogger<HomeController> logger, IConfiguration configuration)
     {
@@ -20,6 +21,8 @@ public class HomeController : Controller
             ?? throw new InvalidOperationException("Connection string 'Server33' not found.");
         _erpConnectionString = configuration.GetConnectionString("Server33Erp")
             ?? throw new InvalidOperationException("Connection string 'Server33Erp' not found.");
+        _erpServer34ConnectionString = configuration.GetConnectionString("Server34Erp")
+            ?? throw new InvalidOperationException("Connection string 'Server34Erp' not found.");
     }
 
     public async Task<IActionResult> Index(string? selectedBarcode)
@@ -77,6 +80,34 @@ public class HomeController : Controller
                 TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' chưa nghiệm thu.";
                 return RedirectToAction("Index", new { selectedBarcode });
             }
+        }
+
+        // Tách HMI Barcode: 3 ký tự cuối = seqno, phần còn lại = barcode
+        if (newHmiBarcode.Length < 4)
+        {
+            TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' không hợp lệ để tách barcode/seqno (độ dài tối thiểu 4 ký tự).";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+        var gdtBarcode = newHmiBarcode.Substring(0, newHmiBarcode.Length - 3);
+        var gdtSeqno = newHmiBarcode.Substring(newHmiBarcode.Length - 3);
+
+        // Lấy qty từ erp.dbo.gdtbart (Server34) để gán vào Sokgtem
+        double sokgtem;
+        using (var erp34Connection = new SqlConnection(_erpServer34ConnectionString))
+        {
+            await erp34Connection.OpenAsync();
+            using var cmdQty = new SqlCommand(
+                "SELECT TOP 1 [qty] FROM [erp].[dbo].[gdtbart] WHERE RTRIM([barcode]) = @barcode AND RTRIM([seqno]) = @seqno",
+                erp34Connection);
+            cmdQty.Parameters.AddWithValue("@barcode", gdtBarcode);
+            cmdQty.Parameters.AddWithValue("@seqno", gdtSeqno);
+            var qtyResult = await cmdQty.ExecuteScalarAsync();
+            if (qtyResult == null || qtyResult == DBNull.Value)
+            {
+                TempData["ErrorMessage"] = $"Không tìm thấy qty trong gdtbart cho barcode='{gdtBarcode}', seqno='{gdtSeqno}'.";
+                return RedirectToAction("Index", new { selectedBarcode });
+            }
+            sokgtem = Convert.ToDouble(qtyResult, CultureInfo.InvariantCulture);
         }
 
         using var connection = new SqlConnection(_connectionString);
@@ -149,10 +180,10 @@ public class HomeController : Controller
             }
         }
 
-        // Insert new record with Result_ActiveUp from latest
+        // Insert new record with Result_ActiveUp from latest, Sokgtem từ gdtbart.qty
         using var cmdInsert = new SqlCommand(
-            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit])
-              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode);
+            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem])
+              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @sokgtem);
               SELECT SCOPE_IDENTITY();",
             connection);
         cmdInsert.Parameters.AddWithValue("@indat", newIndat);
@@ -160,13 +191,14 @@ public class HomeController : Controller
         cmdInsert.Parameters.AddWithValue("@resultActiveUp", (object?)resultActiveUp ?? DBNull.Value);
         cmdInsert.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
         cmdInsert.Parameters.AddWithValue("@barcode", selectedBarcode);
+        cmdInsert.Parameters.AddWithValue("@sokgtem", sokgtem);
 
         var newId = Convert.ToInt32(await cmdInsert.ExecuteScalarAsync());
 
         // Log the insert action
         await WriteLog(connection, "INSERT", newId, newIndat, newIntime, resultActiveUp, newHmiBarcode, selectedBarcode);
 
-        TempData["SuccessMessage"] = $"Đã nhập mới thành công! ID: {newId}, HMI Barcode: {newHmiBarcode}, Ngày: {newIndat}, Giờ: {newIntime}, Result_ActiveUp: {resultActiveUp ?? "(trống)"}";
+        TempData["SuccessMessage"] = $"Đã nhập mới thành công! ID: {newId}, HMI Barcode: {newHmiBarcode}, Ngày: {newIndat}, Giờ: {newIntime}, Result_ActiveUp: {resultActiveUp ?? "(trống)"}, Sokgtem: {sokgtem}";
         return RedirectToAction("Index", new { selectedBarcode });
     }
 
@@ -261,7 +293,7 @@ public class HomeController : Controller
         await connection.OpenAsync();
 
         using var cmd = new SqlCommand(
-            @"SELECT TOP 50 [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit]
+            @"SELECT TOP 50 [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active]
               FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
               ORDER BY [Indat] DESC, [Intime] DESC",
@@ -278,7 +310,10 @@ public class HomeController : Controller
                 Intime = reader.IsDBNull(2) ? null : reader.GetString(2),
                 Result_ActiveUp = reader.IsDBNull(3) ? null : reader.GetString(3),
                 HMI_Barcode = reader.IsDBNull(4) ? null : reader.GetString(4),
-                Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5)
+                Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5),
+                Sokgtem = reader.IsDBNull(6) ? null : reader.GetDouble(6),
+                Sokgsudung = reader.IsDBNull(7) ? null : reader.GetDouble(7),
+                Active = reader.IsDBNull(8) ? null : reader.GetString(8)
             });
         }
     }
