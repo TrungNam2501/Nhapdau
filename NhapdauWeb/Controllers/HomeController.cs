@@ -65,7 +65,7 @@ public class HomeController : Controller
 
         // Kiểm tra HMI Barcode đã tồn tại chưa
         using var cmdCheck = new SqlCommand(
-            "SELECT COUNT(1) FROM [BB].[dbo].[bb_Oil] WHERE [HMI_Barcode] = @hmiBarcode",
+            "SELECT COUNT(1) FROM [BB].[dbo].[bb_Oil_Nhaptay] WHERE [HMI_Barcode] = @hmiBarcode",
             connection);
         cmdCheck.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
         var existsCount = (int)(await cmdCheck.ExecuteScalarAsync() ?? 0);
@@ -78,7 +78,7 @@ public class HomeController : Controller
         // Get the latest record's Indat, Intime and Result_ActiveUp
         using var cmdLatest = new SqlCommand(
             @"SELECT TOP 1 [Indat], [Intime], [Result_ActiveUp]
-              FROM [BB].[dbo].[bb_Oil]
+              FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
               ORDER BY [Indat] DESC, [Intime] DESC",
             connection);
@@ -132,7 +132,7 @@ public class HomeController : Controller
 
         // Insert new record with Result_ActiveUp from latest
         using var cmdInsert = new SqlCommand(
-            @"INSERT INTO [BB].[dbo].[bb_Oil] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit])
+            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit])
               VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode);
               SELECT SCOPE_IDENTITY();",
             connection);
@@ -167,7 +167,7 @@ public class HomeController : Controller
         // Read the record before deleting for logging
         string? indat = null, intime = null, resultActiveUp = null, hmiBarcode = null, barcodeLeft7bit = null;
         using (var cmdRead = new SqlCommand(
-            "SELECT [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [ID] = @id",
+            "SELECT [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil_Nhaptay] WHERE [ID] = @id",
             connection))
         {
             cmdRead.Parameters.AddWithValue("@id", id);
@@ -220,7 +220,7 @@ public class HomeController : Controller
         await connection.OpenAsync();
 
         using var cmd = new SqlCommand(
-            "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil] WHERE [Barcode_left_7bit] IS NOT NULL AND [Barcode_left_7bit] LIKE '68%' ORDER BY [Barcode_left_7bit]",
+            "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil_Nhaptay] WHERE [Barcode_left_7bit] IS NOT NULL AND [Barcode_left_7bit] LIKE '68%' ORDER BY [Barcode_left_7bit]",
             connection);
         using var reader = await cmd.ExecuteReaderAsync();
 
@@ -243,7 +243,7 @@ public class HomeController : Controller
 
         using var cmd = new SqlCommand(
             @"SELECT TOP 50 [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit]
-              FROM [BB].[dbo].[bb_Oil]
+              FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
               ORDER BY [Indat] DESC, [Intime] DESC",
             connection);
