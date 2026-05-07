@@ -11,12 +11,15 @@ public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
     private readonly string _connectionString;
+    private readonly string _erpConnectionString;
 
     public HomeController(ILogger<HomeController> logger, IConfiguration configuration)
     {
         _logger = logger;
         _connectionString = configuration.GetConnectionString("Server33")
             ?? throw new InvalidOperationException("Connection string 'Server33' not found.");
+        _erpConnectionString = configuration.GetConnectionString("Server33Erp")
+            ?? throw new InvalidOperationException("Connection string 'Server33Erp' not found.");
     }
 
     public async Task<IActionResult> Index(string? selectedBarcode)
@@ -58,6 +61,22 @@ public class HomeController : Controller
         {
             TempData["ErrorMessage"] = $"HMI Barcode phải bắt đầu bằng '{selectedBarcode}'. Giá trị nhập: '{newHmiBarcode}'";
             return RedirectToAction("Index", new { selectedBarcode });
+        }
+
+        // Kiểm tra HMI Barcode đã được nghiệm thu trong erp.dbo.prdgdt chưa (Server33)
+        using (var erpConnection = new SqlConnection(_erpConnectionString))
+        {
+            await erpConnection.OpenAsync();
+            using var cmdPrdgdt = new SqlCommand(
+                "SELECT COUNT(1) FROM [erp].[dbo].[prdgdt] WHERE RTRIM([slipno]) = @hmiBarcode",
+                erpConnection);
+            cmdPrdgdt.Parameters.AddWithValue("@hmiBarcode", newHmiBarcode);
+            var prdgdtCount = (int)(await cmdPrdgdt.ExecuteScalarAsync() ?? 0);
+            if (prdgdtCount == 0)
+            {
+                TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' chưa nghiệm thu.";
+                return RedirectToAction("Index", new { selectedBarcode });
+            }
         }
 
         using var connection = new SqlConnection(_connectionString);
@@ -183,7 +202,7 @@ public class HomeController : Controller
         }
 
         using var cmd = new SqlCommand(
-            "DELETE FROM [BB].[dbo].[bb_Oil] WHERE [ID] = @id",
+            "DELETE FROM [BB].[dbo].[bb_Oil_Nhaptay] WHERE [ID] = @id",
             connection);
         cmd.Parameters.AddWithValue("@id", id);
 
