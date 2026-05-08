@@ -11,4 +11,5 @@ public class BbOil
     public double? Sokgtem { get; set; }
     public double? Sokgsudung { get; set; }
     public string? Active { get; set; }
+    public string? User { get; set; }
 }
