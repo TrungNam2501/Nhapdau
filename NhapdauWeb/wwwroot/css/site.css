@@ -354,6 +354,7 @@ body {
 .table-scroll-wrapper {
     max-height: 500px;
     overflow-y: auto;
+    overflow-x: auto;
 }
 
 .table {
