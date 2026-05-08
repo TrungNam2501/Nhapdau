@@ -311,7 +311,9 @@ public class HomeController : Controller
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
-        var yearMonth = DateTime.Now.ToString("yyyyMM");
+        var now = DateTime.Now;
+        var monthStart = new DateTime(now.Year, now.Month, 1).ToString("yyyyMMdd");
+        var nextMonthStart = new DateTime(now.Year, now.Month, 1).AddMonths(1).ToString("yyyyMMdd");
 
         using var cmd = new SqlCommand(
             @"SELECT
@@ -319,10 +321,12 @@ public class HomeController : Controller
                 ISNULL(SUM([sokgsudung]), 0) AS TotalSokgsudung
               FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
-                AND LEFT([Indat], 6) = @yearMonth",
+                AND [Indat] >= @monthStart
+                AND [Indat] < @nextMonthStart",
             connection);
         cmd.Parameters.AddWithValue("@barcode", selectedBarcode);
-        cmd.Parameters.AddWithValue("@yearMonth", yearMonth);
+        cmd.Parameters.AddWithValue("@monthStart", monthStart);
+        cmd.Parameters.AddWithValue("@nextMonthStart", nextMonthStart);
 
         using var reader = await cmd.ExecuteReaderAsync();
         if (await reader.ReadAsync())
