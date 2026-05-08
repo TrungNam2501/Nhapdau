@@ -40,7 +40,7 @@ public class AccountController : Controller
             return RedirectToAction("Index", "Home");
         }
 
-        model.ErrorMessage = "Sai tai khoan hoac mat khau. Vui long thu lai.";
+        model.ErrorMessage = "Sai tài khoản hoặc mật khẩu. Vui lòng thử lại.";
         return View(model);
     }
 
