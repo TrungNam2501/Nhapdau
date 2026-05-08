@@ -175,14 +175,14 @@
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                    <i class="bi bi-x-lg me-1"></i> Hủy
+                    <i class="bi bi-x-lg me-1"></i> No
                 </button>
                 <form method="post" asp-action="Delete" id="deleteForm">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="id" id="deleteId" />
                     <input type="hidden" name="selectedBarcode" id="deleteBarcode" />
                     <button type="submit" class="btn btn-danger">
-                        <i class="bi bi-trash3 me-1"></i> Xóa
+                        <i class="bi bi-trash3 me-1"></i> Yes
                     </button>
                 </form>
             </div>
