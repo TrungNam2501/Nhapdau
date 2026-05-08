@@ -44,6 +44,7 @@ public class HomeController : Controller
         if (!string.IsNullOrEmpty(selectedBarcode))
         {
             await LoadOilRecords(viewModel, selectedBarcode);
+            await LoadMonthlyTotals(viewModel, selectedBarcode);
         }
 
         return View(viewModel);
@@ -302,6 +303,32 @@ public class HomeController : Controller
                 Active = reader.IsDBNull(8) ? null : reader.GetString(8),
                 User = reader.IsDBNull(9) ? null : reader.GetString(9)
             });
+        }
+    }
+
+    private async Task LoadMonthlyTotals(OilViewModel viewModel, string selectedBarcode)
+    {
+        using var connection = new SqlConnection(_connectionString);
+        await connection.OpenAsync();
+
+        var yearMonth = DateTime.Now.ToString("yyyyMM");
+
+        using var cmd = new SqlCommand(
+            @"SELECT
+                ISNULL(SUM([Sokgtem]), 0) AS TotalSokgtem,
+                ISNULL(SUM([sokgsudung]), 0) AS TotalSokgsudung
+              FROM [BB].[dbo].[bb_Oil_Nhaptay]
+              WHERE [Barcode_left_7bit] = @barcode
+                AND LEFT([Indat], 6) = @yearMonth",
+            connection);
+        cmd.Parameters.AddWithValue("@barcode", selectedBarcode);
+        cmd.Parameters.AddWithValue("@yearMonth", yearMonth);
+
+        using var reader = await cmd.ExecuteReaderAsync();
+        if (await reader.ReadAsync())
+        {
+            viewModel.TotalSokgtemMonth = reader.IsDBNull(0) ? 0d : Convert.ToDouble(reader.GetValue(0), CultureInfo.InvariantCulture);
+            viewModel.TotalSokgsudungMonth = reader.IsDBNull(1) ? 0d : Convert.ToDouble(reader.GetValue(1), CultureInfo.InvariantCulture);
         }
     }
 

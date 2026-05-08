@@ -10,4 +10,6 @@ public class OilViewModel
     public string? NewHmiBarcode { get; set; }
     public string? ErrorMessage { get; set; }
     public string? SuccessMessage { get; set; }
+    public double TotalSokgtemMonth { get; set; }
+    public double TotalSokgsudungMonth { get; set; }
 }
