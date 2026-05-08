@@ -102,6 +102,35 @@ public class HomeController : Controller
             return RedirectToAction("Index", new { selectedBarcode });
         }
 
+        // Tách HMI Barcode: 3 ký tự cuối = seqno, phần còn lại = barcode
+        if (newHmiBarcode.Length < 4)
+        {
+            TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' không hợp lệ để tách barcode/seqno (độ dài tối thiểu 4 ký tự).";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+        var gdtBarcode = newHmiBarcode.Substring(0, newHmiBarcode.Length - 3);
+        var gdtSeqno = newHmiBarcode.Substring(newHmiBarcode.Length - 3);
+
+        // Kiểm tra tem có tồn tại trong erp.dbo.gdtbart chưa (Server34) - PHẢI làm trước khi check nghiệm thu.
+        // Đồng thời lấy luôn qty để gán vào Sokgtem sau này (chỉ cần 1 query thay vì 2).
+        double sokgtem;
+        using (var erp34Connection = new SqlConnection(_erpServer34ConnectionString))
+        {
+            await erp34Connection.OpenAsync();
+            using var cmdQty = new SqlCommand(
+                "SELECT TOP 1 [qty] FROM [erp].[dbo].[gdtbart] WHERE RTRIM([barcode]) = @barcode AND RTRIM([seqno]) = @seqno",
+                erp34Connection);
+            cmdQty.Parameters.AddWithValue("@barcode", gdtBarcode);
+            cmdQty.Parameters.AddWithValue("@seqno", gdtSeqno);
+            var qtyResult = await cmdQty.ExecuteScalarAsync();
+            if (qtyResult == null || qtyResult == DBNull.Value)
+            {
+                TempData["ErrorMessage"] = $"Tem nhập sai hoặc tem vừa in, vui lòng kiểm tra lại mã vạch '{newHmiBarcode}'. Nếu tem đúng, chờ 10 phút sau nhập lại.";
+                return RedirectToAction("Index", new { selectedBarcode });
+            }
+            sokgtem = Convert.ToDouble(qtyResult, CultureInfo.InvariantCulture);
+        }
+
         // Kiểm tra HMI Barcode đã được nghiệm thu trong erp.dbo.prdgdt chưa (Server33)
         using (var erpConnection = new SqlConnection(_erpConnectionString))
         {
@@ -116,34 +145,6 @@ public class HomeController : Controller
                 TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' chưa nghiệm thu.";
                 return RedirectToAction("Index", new { selectedBarcode });
             }
-        }
-
-        // Tách HMI Barcode: 3 ký tự cuối = seqno, phần còn lại = barcode
-        if (newHmiBarcode.Length < 4)
-        {
-            TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' không hợp lệ để tách barcode/seqno (độ dài tối thiểu 4 ký tự).";
-            return RedirectToAction("Index", new { selectedBarcode });
-        }
-        var gdtBarcode = newHmiBarcode.Substring(0, newHmiBarcode.Length - 3);
-        var gdtSeqno = newHmiBarcode.Substring(newHmiBarcode.Length - 3);
-
-        // Lấy qty từ erp.dbo.gdtbart (Server34) để gán vào Sokgtem
-        double sokgtem;
-        using (var erp34Connection = new SqlConnection(_erpServer34ConnectionString))
-        {
-            await erp34Connection.OpenAsync();
-            using var cmdQty = new SqlCommand(
-                "SELECT TOP 1 [qty] FROM [erp].[dbo].[gdtbart] WHERE RTRIM([barcode]) = @barcode AND RTRIM([seqno]) = @seqno",
-                erp34Connection);
-            cmdQty.Parameters.AddWithValue("@barcode", gdtBarcode);
-            cmdQty.Parameters.AddWithValue("@seqno", gdtSeqno);
-            var qtyResult = await cmdQty.ExecuteScalarAsync();
-            if (qtyResult == null || qtyResult == DBNull.Value)
-            {
-                TempData["ErrorMessage"] = $"Không tìm thấy qty trong gdtbart cho barcode='{gdtBarcode}', seqno='{gdtSeqno}'.";
-                return RedirectToAction("Index", new { selectedBarcode });
-            }
-            sokgtem = Convert.ToDouble(qtyResult, CultureInfo.InvariantCulture);
         }
 
         using var connection = new SqlConnection(_connectionString);
