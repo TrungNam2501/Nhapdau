@@ -133,8 +133,8 @@
                                 <td>@record.Result_ActiveUp</td>
                                 <td>@record.HMI_Barcode</td>
                                 <td>@record.Barcode_left_7bit</td>
-                                <td>@record.Sokgtem</td>
-                                <td>@record.Sokgsudung</td>
+                                <td>@record.Sokgtem?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)</td>
+                                <td>@record.Sokgsudung?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)</td>
                                 <td>@record.Active</td>
                                 <td>@record.User</td>
                                 <td class="text-center">
