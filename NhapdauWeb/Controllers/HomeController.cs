@@ -142,7 +142,7 @@ public class HomeController : Controller
             var prdgdtCount = (int)(await cmdPrdgdt.ExecuteScalarAsync() ?? 0);
             if (prdgdtCount == 0)
             {
-                TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' chưa nghiệm thu.";
+                TempData["ErrorMessage"] = $"HMI Barcode '{newHmiBarcode}' chưa nghiệm thu. Vui lòng liên hệ thí nghiệm dùng chương trình nghiệm thu trên máy quét nghiệm thu rồi nhập lại";
                 return RedirectToAction("Index", new { selectedBarcode });
             }
         }
@@ -379,6 +379,8 @@ public class HomeController : Controller
     private async Task WriteLog(SqlConnection connection, string action, int recordId,
         string? indat, string? intime, string? resultActiveUp, string? hmiBarcode, string? barcodeLeft7bit)
     {
+
+        var currentUser = HttpContext.Session.GetString("Username") ?? "";
         await EnsureLogTableExists(connection);
 
         using var cmd = new SqlCommand(
@@ -392,7 +394,7 @@ public class HomeController : Controller
         cmd.Parameters.AddWithValue("@resultActiveUp", (object?)resultActiveUp ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@hmiBarcode", (object?)hmiBarcode ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@barcode", (object?)barcodeLeft7bit ?? DBNull.Value);
-        cmd.Parameters.AddWithValue("@logUser", Environment.UserName);
+        cmd.Parameters.AddWithValue("@logUser", currentUser);
 
         await cmd.ExecuteNonQueryAsync();
     }
