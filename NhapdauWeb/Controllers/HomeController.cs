@@ -32,25 +32,44 @@ public class HomeController : Controller
             return RedirectToAction("Login", "Account");
         }
 
-        // Chỉ chấp nhận barcode nằm trong danh sách loại dầu được gán cứng
-        var validatedBarcode = OilTypes.IsValidCode(selectedBarcode) ? selectedBarcode : null;
+        // Chuẩn hoá: trim và chỉ lấy phần code (trước dấu cách) để chắc chắn
+        // dùng đúng "68010" cho cột [Barcode_left_7bit] kể cả khi UI/URL truyền
+        // chuỗi hiển thị kiểu "68010 - P150A".
+        var normalizedBarcode = NormalizeBarcode(selectedBarcode);
 
         var viewModel = new OilViewModel
         {
-            SelectedBarcode = validatedBarcode,
+            SelectedBarcode = normalizedBarcode,
             ErrorMessage = TempData["ErrorMessage"] as string,
             SuccessMessage = TempData["SuccessMessage"] as string
         };
 
-        LoadBarcodeList(viewModel, validatedBarcode);
+        LoadBarcodeList(viewModel, normalizedBarcode);
 
-        if (!string.IsNullOrEmpty(validatedBarcode))
+        if (!string.IsNullOrEmpty(normalizedBarcode))
         {
-            await LoadOilRecords(viewModel, validatedBarcode);
-            await LoadMonthlyTotals(viewModel, validatedBarcode);
+            await LoadOilRecords(viewModel, normalizedBarcode);
+            await LoadMonthlyTotals(viewModel, normalizedBarcode);
         }
 
         return View(viewModel);
+    }
+
+    private static string? NormalizeBarcode(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return null;
+        }
+
+        var trimmed = input.Trim();
+        var firstSpace = trimmed.IndexOf(' ');
+        if (firstSpace > 0)
+        {
+            trimmed = trimmed.Substring(0, firstSpace);
+        }
+
+        return string.IsNullOrEmpty(trimmed) ? null : trimmed;
     }
 
     [HttpPost]
@@ -61,6 +80,9 @@ public class HomeController : Controller
         {
             return RedirectToAction("Login", "Account");
         }
+
+        // Chuẩn hoá tương tự Index để chắc chắn lưu đúng code 5 ký tự vào DB
+        selectedBarcode = NormalizeBarcode(selectedBarcode) ?? string.Empty;
 
         if (string.IsNullOrEmpty(selectedBarcode))
         {
