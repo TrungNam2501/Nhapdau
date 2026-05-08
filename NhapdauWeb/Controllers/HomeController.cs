@@ -32,19 +32,22 @@ public class HomeController : Controller
             return RedirectToAction("Login", "Account");
         }
 
+        // Chỉ chấp nhận barcode nằm trong danh sách loại dầu được gán cứng
+        var validatedBarcode = OilTypes.IsValidCode(selectedBarcode) ? selectedBarcode : null;
+
         var viewModel = new OilViewModel
         {
-            SelectedBarcode = selectedBarcode,
+            SelectedBarcode = validatedBarcode,
             ErrorMessage = TempData["ErrorMessage"] as string,
             SuccessMessage = TempData["SuccessMessage"] as string
         };
 
-        await LoadBarcodeList(viewModel, selectedBarcode);
+        LoadBarcodeList(viewModel, validatedBarcode);
 
-        if (!string.IsNullOrEmpty(selectedBarcode))
+        if (!string.IsNullOrEmpty(validatedBarcode))
         {
-            await LoadOilRecords(viewModel, selectedBarcode);
-            await LoadMonthlyTotals(viewModel, selectedBarcode);
+            await LoadOilRecords(viewModel, validatedBarcode);
+            await LoadMonthlyTotals(viewModel, validatedBarcode);
         }
 
         return View(viewModel);
@@ -252,24 +255,16 @@ public class HomeController : Controller
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
     }
 
-    private async Task LoadBarcodeList(OilViewModel viewModel, string? selectedBarcode)
+    private static void LoadBarcodeList(OilViewModel viewModel, string? selectedBarcode)
     {
-        using var connection = new SqlConnection(_connectionString);
-        await connection.OpenAsync();
-
-        using var cmd = new SqlCommand(
-            "SELECT DISTINCT [Barcode_left_7bit] FROM [BB].[dbo].[bb_Oil_Nhaptay] WHERE [Barcode_left_7bit] IS NOT NULL AND [Barcode_left_7bit] LIKE '68%' ORDER BY [Barcode_left_7bit]",
-            connection);
-        using var reader = await cmd.ExecuteReaderAsync();
-
-        while (await reader.ReadAsync())
+        // Danh sách loại dầu được gán cứng (xem Models/OilType.cs)
+        foreach (var oil in OilTypes.All)
         {
-            var value = reader.GetString(0).Trim();
             viewModel.BarcodeList.Add(new SelectListItem
             {
-                Value = value,
-                Text = value,
-                Selected = value == selectedBarcode
+                Value = oil.Code,
+                Text = oil.DisplayName,
+                Selected = string.Equals(oil.Code, selectedBarcode, StringComparison.OrdinalIgnoreCase)
             });
         }
     }

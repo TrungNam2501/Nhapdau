@@ -25,7 +25,7 @@
                         <span class="input-group-text"><i class="bi bi-search"></i></span>
                         <select name="selectedBarcode" id="selectedBarcode" class="form-select select2-dropdown"
                                 onchange="this.form.submit()">
-                            <option value="">-- Chọn Barcode (7 bit) --</option>
+                            <option value="">-- Chọn loại dầu --</option>
                             @foreach (var item in Model.BarcodeList)
                             {
                                 <option value="@item.Value" selected="@item.Selected">@item.Text</option>
@@ -74,7 +74,7 @@
     <div class="stats-bar mb-4 animate-fade-in-up animate-delay-2">
         <div class="stat-item">
             <i class="bi bi-funnel-fill"></i>
-            <span>Đang lọc: <strong>@Model.SelectedBarcode</strong></span>
+            <span>Đang lọc: <strong>@NhapdauWeb.Models.OilTypes.GetDisplayName(Model.SelectedBarcode)</strong></span>
         </div>
         <div class="stat-divider"></div>
         <div class="stat-item">
