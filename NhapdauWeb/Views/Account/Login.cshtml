@@ -41,7 +41,7 @@
             animation: bgFloat 20s ease-in-out infinite;
         }
 
-        @keyframes bgFloat {
+        @@keyframes bgFloat {
             0%, 100% { transform: translate(0, 0) rotate(0deg); }
             33% { transform: translate(30px, -30px) rotate(1deg); }
             66% { transform: translate(-20px, 20px) rotate(-1deg); }
@@ -73,7 +73,7 @@
         .particle:nth-child(7) { left: 15%; animation-duration: 16s; animation-delay: 6s; }
         .particle:nth-child(8) { left: 60%; animation-duration: 13s; animation-delay: 2.5s; width: 6px; height: 6px; opacity: 0.2; }
 
-        @keyframes particleFloat {
+        @@keyframes particleFloat {
             0% { transform: translateY(100vh) scale(0); opacity: 0; }
             10% { opacity: 1; }
             90% { opacity: 1; }
@@ -100,7 +100,7 @@
             animation: cardAppear 0.8s cubic-bezier(0.16, 1, 0.3, 1) both;
         }
 
-        @keyframes cardAppear {
+        @@keyframes cardAppear {
             from {
                 opacity: 0;
                 transform: translateY(30px) scale(0.96);
@@ -131,7 +131,7 @@
             animation: iconPulse 3s ease-in-out infinite;
         }
 
-        @keyframes iconPulse {
+        @@keyframes iconPulse {
             0%, 100% { box-shadow: 0 8px 32px rgba(3, 105, 161, 0.4); }
             50% { box-shadow: 0 8px 40px rgba(3, 105, 161, 0.6), 0 0 20px rgba(56, 189, 248, 0.2); }
         }
@@ -251,7 +251,7 @@
             flex-shrink: 0;
         }
 
-        @keyframes shakeError {
+        @@keyframes shakeError {
             10%, 90% { transform: translateX(-1px); }
             20%, 80% { transform: translateX(2px); }
             30%, 50%, 70% { transform: translateX(-3px); }
@@ -326,7 +326,7 @@
         .btn-login.loading .btn-text { display: none; }
         .btn-login.loading .spinner { display: inline-block; }
 
-        @keyframes spin {
+        @@keyframes spin {
             to { transform: rotate(360deg); }
         }
 
@@ -339,7 +339,7 @@
         }
 
         /* Responsive */
-        @media (max-width: 480px) {
+        @@media (max-width: 480px) {
             .login-card {
                 padding: 2rem 1.5rem;
                 border-radius: 20px;
