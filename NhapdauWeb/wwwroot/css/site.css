@@ -138,6 +138,27 @@ body {
     padding-top: 1.5rem;
 }
 
+.main-container {
+    width: 100%;
+    max-width: 1600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+@media (min-width: 1200px) {
+    .main-container {
+        padding-left: 3rem !important;
+        padding-right: 3rem !important;
+    }
+}
+
+@media (min-width: 1600px) {
+    .main-container {
+        padding-left: 4rem !important;
+        padding-right: 4rem !important;
+    }
+}
+
 /* ===== Page Header ===== */
 .page-header {
     margin-bottom: 1.5rem;

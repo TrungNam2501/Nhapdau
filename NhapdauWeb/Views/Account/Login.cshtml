@@ -1,6 +1,6 @@
 @model NhapdauWeb.Models.LoginViewModel
 @{
-    ViewData["Title"] = "Dang nhap";
+    ViewData["Title"] = "Đăng nhập";
     Layout = null;
 }
 
@@ -9,7 +9,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Dang nhap - NhapdauWeb</title>
+    <title>Đăng nhập - NhapdauWeb</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet" />
     <style>
@@ -369,8 +369,8 @@
                 <img src="/images/kenda-logo-n-c.png" alt="Kenda Logo" class="login-logo" />
             </div>
 
-            <h1 class="login-title">Nh?p d? li?u d?u </h1>
-            <p class="login-subtitle">H? th?ng qu?n l� tem nguy�n v?t li?u d?u BB</p>
+            <h1 class="login-title">Nhập dữ liệu dầu</h1>
+            <p class="login-subtitle">Hệ thống quản lý tem nguyên vật liệu dầu BB</p>
 
             <!-- Error message -->
             @if (!string.IsNullOrEmpty(Model.ErrorMessage))
@@ -385,10 +385,10 @@
                 @Html.AntiForgeryToken()
 
                 <div class="form-group">
-                    <label class="form-label" for="username">Tai khoan</label>
+                    <label class="form-label" for="username">Tài khoản</label>
                     <div class="input-wrapper">
                         <input type="text" class="form-input" id="username" name="Username"
-                               value="@Model.Username" placeholder="Nhap tai khoan FTP"
+                               value="@Model.Username" placeholder="Nhập tài khoản FTP"
                                autocomplete="username" autofocus />
                         <i class="bi bi-person-fill input-icon"></i>
                     </div>
@@ -396,10 +396,10 @@
                 </div>
 
                 <div class="form-group">
-                    <label class="form-label" for="password">Mat khau</label>
+                    <label class="form-label" for="password">Mật khẩu</label>
                     <div class="input-wrapper">
                         <input type="password" class="form-input" id="password" name="Password"
-                               placeholder="Nhap mat khau" autocomplete="current-password" />
+                               placeholder="Nhập mật khẩu" autocomplete="current-password" />
                         <i class="bi bi-lock-fill input-icon"></i>
                         <button type="button" class="toggle-password" onclick="togglePassword()">
                             <i class="bi bi-eye" id="toggleIcon"></i>
@@ -410,14 +410,14 @@
 
                 <button type="submit" class="btn-login" id="btnLogin">
                     <span class="btn-text">
-                        <i class="bi bi-box-arrow-in-right"></i> Dang nhap
+                        <i class="bi bi-box-arrow-in-right"></i> Đăng nhập
                     </span>
                     <span class="spinner"></span>
                 </button>
             </form>
 
             <div class="login-footer">
-                &copy; 2026 NhapdauWeb &mdash; He thong noi bo
+                &copy; 2026 NhapdauWeb &mdash; Hệ thống nội bộ
             </div>
         </div>
     </div>

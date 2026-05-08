@@ -40,8 +40,8 @@
                     </span>
                     <form method="post" asp-controller="Account" asp-action="Logout" class="d-inline ms-2">
                         @Html.AntiForgeryToken()
-                        <button type="submit" class="btn-header-logout" title="Dang xuat">
-                            <i class="bi bi-box-arrow-right me-1"></i> Dang xuat
+                        <button type="submit" class="btn-header-logout" title="Đăng xuất">
+                            <i class="bi bi-box-arrow-right me-1"></i> Đăng xuất
                         </button>
                     </form>
                 </div>
@@ -65,8 +65,8 @@
                         </span>
                         <form method="post" asp-controller="Account" asp-action="Logout" class="d-inline">
                             @Html.AntiForgeryToken()
-                            <button type="submit" class="btn-header-logout" title="Dang xuat">
-                                <i class="bi bi-box-arrow-right me-1"></i> Dang xuat
+                            <button type="submit" class="btn-header-logout" title="Đăng xuất">
+                                <i class="bi bi-box-arrow-right me-1"></i> Đăng xuất
                             </button>
                         </form>
                     </div>
@@ -79,7 +79,7 @@
     <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1080;"></div>
 
     <div class="main-content">
-        <div class="container-fluid px-4 px-lg-5">
+        <div class="main-container px-4 px-lg-5">
             <main role="main" class="pb-3">
                 @RenderBody()
             </main>
