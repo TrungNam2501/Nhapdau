@@ -333,10 +333,17 @@ public class HomeController : Controller
         var monthStart = new DateTime(now.Year, now.Month, 1).ToString("yyyyMMdd");
         var nextMonthStart = new DateTime(now.Year, now.Month, 1).AddMonths(1).ToString("yyyyMMdd");
 
+        // Cap sokgsudung tối đa bằng Sokgtem cho từng dòng để tổng khớp với hiển thị bảng
         using var cmd = new SqlCommand(
             @"SELECT
                 ISNULL(SUM([Sokgtem]), 0) AS TotalSokgtem,
-                ISNULL(SUM([sokgsudung]), 0) AS TotalSokgsudung
+                ISNULL(SUM(
+                    CASE
+                        WHEN [sokgsudung] IS NULL THEN 0
+                        WHEN [Sokgtem] IS NOT NULL AND [sokgsudung] > [Sokgtem] THEN [Sokgtem]
+                        ELSE [sokgsudung]
+                    END
+                ), 0) AS TotalSokgsudung
               FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
                 AND [Indat] >= @monthStart

@@ -134,7 +134,14 @@
                                 <td>@record.HMI_Barcode</td>
                                 <td>@record.Barcode_left_7bit</td>
                                 <td>@record.Sokgtem?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)</td>
-                                <td>@record.Sokgsudung?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)</td>
+                                @{
+                                    double? displaySokgsudung = record.Sokgsudung;
+                                    if (displaySokgsudung.HasValue && record.Sokgtem.HasValue && displaySokgsudung.Value > record.Sokgtem.Value)
+                                    {
+                                        displaySokgsudung = record.Sokgtem;
+                                    }
+                                }
+                                <td>@displaySokgsudung?.ToString("N2", System.Globalization.CultureInfo.InvariantCulture)</td>
                                 <td>@record.Active</td>
                                 <td>@record.User</td>
                                 <td class="text-center">
