@@ -1,5 +1,3 @@
-using System.IO.Compression;
-using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Net.Http.Headers;
 
@@ -17,22 +15,6 @@ builder.Services.AddSession(options =>
     options.Cookie.IsEssential = true;
 });
 
-// Response compression (gzip + brotli) for HTML/CSS/JS/JSON over HTTP
-builder.Services.AddResponseCompression(options =>
-{
-    options.EnableForHttps = true;
-    options.Providers.Add<BrotliCompressionProvider>();
-    options.Providers.Add<GzipCompressionProvider>();
-    options.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(new[]
-    {
-        "image/svg+xml",
-        "application/font-woff2",
-        "font/woff2"
-    });
-});
-builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
-builder.Services.Configure<GzipCompressionProviderOptions>(o => o.Level = CompressionLevel.Fastest);
-
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -40,8 +22,6 @@ if (!app.Environment.IsDevelopment())
 {
     app.UseExceptionHandler("/Home/Error");
 }
-
-app.UseResponseCompression();
 
 // Long cache for self-hosted assets under /lib (versioned via asp-append-version="v")
 app.UseStaticFiles(new StaticFileOptions
