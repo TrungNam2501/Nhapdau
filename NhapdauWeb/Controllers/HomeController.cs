@@ -27,6 +27,11 @@ public class HomeController : Controller
 
     public async Task<IActionResult> Index(string? selectedBarcode)
     {
+        if (HttpContext.Session.GetString("Username") == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
         var viewModel = new OilViewModel
         {
             SelectedBarcode = selectedBarcode,
@@ -48,6 +53,11 @@ public class HomeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Insert(string selectedBarcode, string newHmiBarcode)
     {
+        if (HttpContext.Session.GetString("Username") == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
         if (string.IsNullOrEmpty(selectedBarcode))
         {
             TempData["ErrorMessage"] = "Vui lòng chọn Barcode trước khi nhập mới.";
@@ -148,9 +158,10 @@ public class HomeController : Controller
         }
 
         // Insert new record: Sokgtem từ gdtbart.qty, sokgsudung = 0, active = 'mokhoa'
+        var currentUser = HttpContext.Session.GetString("Username") ?? "";
         using var cmdInsert = new SqlCommand(
-            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active])
-              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @sokgtem, @sokgsudung, @active);
+            @"INSERT INTO [BB].[dbo].[bb_Oil_Nhaptay] ([Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active], [User])
+              VALUES (@indat, @intime, @resultActiveUp, @hmiBarcode, @barcode, @sokgtem, @sokgsudung, @active, @user);
               SELECT SCOPE_IDENTITY();",
             connection);
         cmdInsert.Parameters.AddWithValue("@indat", newIndat);
@@ -161,6 +172,7 @@ public class HomeController : Controller
         cmdInsert.Parameters.AddWithValue("@sokgtem", sokgtem);
         cmdInsert.Parameters.AddWithValue("@sokgsudung", 0d);
         cmdInsert.Parameters.AddWithValue("@active", "mokhoa");
+        cmdInsert.Parameters.AddWithValue("@user", currentUser);
 
         var newId = Convert.ToInt32(await cmdInsert.ExecuteScalarAsync());
 
@@ -175,6 +187,11 @@ public class HomeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Delete(int id, string? selectedBarcode)
     {
+        if (HttpContext.Session.GetString("Username") == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
         if (id <= 0)
         {
             TempData["ErrorMessage"] = "ID không hợp lệ.";
@@ -262,7 +279,7 @@ public class HomeController : Controller
         await connection.OpenAsync();
 
         using var cmd = new SqlCommand(
-            @"SELECT TOP 50 [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active]
+            @"SELECT TOP 50 [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active], [User]
               FROM [BB].[dbo].[bb_Oil_Nhaptay]
               WHERE [Barcode_left_7bit] = @barcode
               ORDER BY [Indat] DESC, [Intime] DESC",
@@ -282,7 +299,8 @@ public class HomeController : Controller
                 Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5),
                 Sokgtem = reader.IsDBNull(6) ? null : reader.GetDouble(6),
                 Sokgsudung = reader.IsDBNull(7) ? null : reader.GetDouble(7),
-                Active = reader.IsDBNull(8) ? null : reader.GetString(8)
+                Active = reader.IsDBNull(8) ? null : reader.GetString(8),
+                User = reader.IsDBNull(9) ? null : reader.GetString(9)
             });
         }
     }
