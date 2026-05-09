@@ -329,25 +329,32 @@ public class HomeController : Controller
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
+        await EnsureSudungLogTableExists(connection);
+
         var now = DateTime.Now;
         var monthStart = new DateTime(now.Year, now.Month, 1).ToString("yyyyMMdd");
         var nextMonthStart = new DateTime(now.Year, now.Month, 1).AddMonths(1).ToString("yyyyMMdd");
 
-        // Cap sokgsudung tối đa bằng Sokgtem cho từng dòng để tổng khớp với hiển thị bảng
+        // Tổng kg tem (tháng): SUM Sokgtem từ bb_Oil_Nhaptay lọc theo Indat (ngày tem được nhập).
+        // Tổng kg sử dụng (tháng): SUM RealWeight từ bb_Oil_Sudung_Log lọc theo Sudungdat (ngày dầu thực sự
+        // được sử dụng — OILautoservice.UpdateSokgsudungAsync ghi delta vào bảng log mỗi lần update).
+        // Cách này chia chính xác giữa các tháng kể cả khi 1 tem được dùng dần qua nhiều tháng.
         using var cmd = new SqlCommand(
             @"SELECT
-                ISNULL(SUM([Sokgtem]), 0) AS TotalSokgtem,
-                ISNULL(SUM(
-                    CASE
-                        WHEN [sokgsudung] IS NULL THEN 0
-                        WHEN [Sokgtem] IS NOT NULL AND [sokgsudung] > [Sokgtem] THEN [Sokgtem]
-                        ELSE [sokgsudung]
-                    END
-                ), 0) AS TotalSokgsudung
-              FROM [BB].[dbo].[bb_Oil_Nhaptay]
-              WHERE [Barcode_left_7bit] = @barcode
-                AND [Indat] >= @monthStart
-                AND [Indat] < @nextMonthStart",
+                ISNULL((
+                    SELECT SUM([Sokgtem])
+                    FROM [BB].[dbo].[bb_Oil_Nhaptay]
+                    WHERE [Barcode_left_7bit] = @barcode
+                      AND [Indat] >= @monthStart
+                      AND [Indat] < @nextMonthStart
+                ), 0) AS TotalSokgtem,
+                ISNULL((
+                    SELECT SUM([RealWeight])
+                    FROM [BB].[dbo].[bb_Oil_Sudung_Log]
+                    WHERE [Barcode_left_7bit] = @barcode
+                      AND [Sudungdat] >= @monthStart
+                      AND [Sudungdat] < @nextMonthStart
+                ), 0) AS TotalSokgsudung",
             connection);
         cmd.Parameters.AddWithValue("@barcode", selectedBarcode);
         cmd.Parameters.AddWithValue("@monthStart", monthStart);
@@ -359,6 +366,36 @@ public class HomeController : Controller
             viewModel.TotalSokgtemMonth = reader.IsDBNull(0) ? 0d : Convert.ToDouble(reader.GetValue(0), CultureInfo.InvariantCulture);
             viewModel.TotalSokgsudungMonth = reader.IsDBNull(1) ? 0d : Convert.ToDouble(reader.GetValue(1), CultureInfo.InvariantCulture);
         }
+    }
+
+    private static async Task EnsureSudungLogTableExists(SqlConnection connection)
+    {
+        // Idempotent: tạo bảng log delta cho sokgsudung nếu chưa có.
+        // OILautoservice.UpdateSokgsudungAsync sẽ INSERT 1 dòng vào đây mỗi lần cộng dồn realWeight.
+        using var cmd = new SqlCommand(
+            @"IF NOT EXISTS (SELECT 1 FROM sys.tables
+                             WHERE name = 'bb_Oil_Sudung_Log'
+                               AND schema_id = SCHEMA_ID('dbo'))
+              BEGIN
+                  CREATE TABLE [BB].[dbo].[bb_Oil_Sudung_Log](
+                      [LogID]             [int]            IDENTITY(1,1) NOT NULL PRIMARY KEY,
+                      [NhaptayID]         [int]            NOT NULL,
+                      [Barcode_left_7bit] [varchar](50)    NULL,
+                      [RealWeight]        [decimal](18,6)  NOT NULL,
+                      [Sudungdat]         [varchar](8)     NULL,
+                      [Sudungtime]        [varchar](8)     NULL,
+                      [LogDate]           [datetime]       NOT NULL DEFAULT(GETDATE())
+                  );
+              END;
+              IF NOT EXISTS (SELECT 1 FROM sys.indexes
+                             WHERE name = 'IX_bb_Oil_Sudung_Log_Barcode_Sudungdat'
+                               AND object_id = OBJECT_ID('[BB].[dbo].[bb_Oil_Sudung_Log]'))
+              BEGIN
+                  CREATE INDEX [IX_bb_Oil_Sudung_Log_Barcode_Sudungdat]
+                  ON [BB].[dbo].[bb_Oil_Sudung_Log] ([Barcode_left_7bit], [Sudungdat]);
+              END;",
+            connection);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     private async Task EnsureLogTableExists(SqlConnection connection)
