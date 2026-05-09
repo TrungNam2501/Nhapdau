@@ -329,25 +329,30 @@ public class HomeController : Controller
         using var connection = new SqlConnection(_connectionString);
         await connection.OpenAsync();
 
+        await EnsureSudungColumnsExist(connection);
+
         var now = DateTime.Now;
         var monthStart = new DateTime(now.Year, now.Month, 1).ToString("yyyyMMdd");
         var nextMonthStart = new DateTime(now.Year, now.Month, 1).AddMonths(1).ToString("yyyyMMdd");
 
-        // Cap sokgsudung tối đa bằng Sokgtem cho từng dòng để tổng khớp với hiển thị bảng
+        // Tổng kg tem: lọc theo Indat (ngày tem được nhập/quét vào hệ thống).
+        // Tổng kg sử dụng: lọc theo Sudungdat (ngày sokgsudung được cập nhật bởi OILautoservice),
+        // vì 1 tem có thể được quét tháng trước nhưng sử dụng tháng này.
+        // Cap sokgsudung tối đa bằng Sokgtem cho từng dòng để tổng khớp với hiển thị bảng.
         using var cmd = new SqlCommand(
             @"SELECT
-                ISNULL(SUM([Sokgtem]), 0) AS TotalSokgtem,
-                ISNULL(SUM(
-                    CASE
-                        WHEN [sokgsudung] IS NULL THEN 0
-                        WHEN [Sokgtem] IS NOT NULL AND [sokgsudung] > [Sokgtem] THEN [Sokgtem]
-                        ELSE [sokgsudung]
-                    END
-                ), 0) AS TotalSokgsudung
+                ISNULL(SUM(CASE WHEN [Indat] >= @monthStart AND [Indat] < @nextMonthStart THEN [Sokgtem] ELSE 0 END), 0) AS TotalSokgtem,
+                ISNULL(SUM(CASE
+                    WHEN [Sudungdat] >= @monthStart AND [Sudungdat] < @nextMonthStart THEN
+                        CASE
+                            WHEN [sokgsudung] IS NULL THEN 0
+                            WHEN [Sokgtem] IS NOT NULL AND [sokgsudung] > [Sokgtem] THEN [Sokgtem]
+                            ELSE [sokgsudung]
+                        END
+                    ELSE 0
+                END), 0) AS TotalSokgsudung
               FROM [BB].[dbo].[bb_Oil_Nhaptay]
-              WHERE [Barcode_left_7bit] = @barcode
-                AND [Indat] >= @monthStart
-                AND [Indat] < @nextMonthStart",
+              WHERE [Barcode_left_7bit] = @barcode",
             connection);
         cmd.Parameters.AddWithValue("@barcode", selectedBarcode);
         cmd.Parameters.AddWithValue("@monthStart", monthStart);
@@ -359,6 +364,27 @@ public class HomeController : Controller
             viewModel.TotalSokgtemMonth = reader.IsDBNull(0) ? 0d : Convert.ToDouble(reader.GetValue(0), CultureInfo.InvariantCulture);
             viewModel.TotalSokgsudungMonth = reader.IsDBNull(1) ? 0d : Convert.ToDouble(reader.GetValue(1), CultureInfo.InvariantCulture);
         }
+    }
+
+    private static async Task EnsureSudungColumnsExist(SqlConnection connection)
+    {
+        // Idempotent: thêm 2 cột Sudungdat / Sudungtime vào bb_Oil_Nhaptay nếu chưa có.
+        // OILautoservice.UpdateSokgsudungAsync sẽ ghi giá trị vào 2 cột này khi cập nhật sokgsudung.
+        using var cmd = new SqlCommand(
+            @"IF NOT EXISTS (SELECT 1 FROM sys.columns
+                             WHERE name = 'Sudungdat'
+                               AND object_id = OBJECT_ID('[BB].[dbo].[bb_Oil_Nhaptay]'))
+              BEGIN
+                  ALTER TABLE [BB].[dbo].[bb_Oil_Nhaptay] ADD [Sudungdat] varchar(8) NULL;
+              END
+              IF NOT EXISTS (SELECT 1 FROM sys.columns
+                             WHERE name = 'Sudungtime'
+                               AND object_id = OBJECT_ID('[BB].[dbo].[bb_Oil_Nhaptay]'))
+              BEGIN
+                  ALTER TABLE [BB].[dbo].[bb_Oil_Nhaptay] ADD [Sudungtime] varchar(8) NULL;
+              END",
+            connection);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     private async Task EnsureLogTableExists(SqlConnection connection)
