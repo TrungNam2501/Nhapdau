@@ -1,5 +1,7 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Text.RegularExpressions;
+using ClosedXML.Excel;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Rendering;
 using Microsoft.Data.SqlClient;
@@ -276,6 +278,113 @@ public class HomeController : Controller
     public IActionResult Error()
     {
         return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+    }
+
+    public async Task<IActionResult> ExportExcel(string? selectedBarcode)
+    {
+        if (HttpContext.Session.GetString("Username") == null)
+        {
+            return RedirectToAction("Login", "Account");
+        }
+
+        var normalizedBarcode = NormalizeBarcode(selectedBarcode);
+        if (string.IsNullOrEmpty(normalizedBarcode) || !OilTypes.IsValidCode(normalizedBarcode))
+        {
+            TempData["ErrorMessage"] = "Vui lòng chọn loại dầu hợp lệ trước khi tải Excel.";
+            return RedirectToAction("Index", new { selectedBarcode });
+        }
+
+        // Tải TOÀN BỘ records của loại dầu này (không TOP 50 như bảng hiển thị)
+        var records = new List<BbOil>();
+        using (var connection = new SqlConnection(_connectionString))
+        {
+            await connection.OpenAsync();
+            using var cmd = new SqlCommand(
+                @"SELECT [ID], [Indat], [Intime], [Result_ActiveUp], [HMI_Barcode], [Barcode_left_7bit], [Sokgtem], [sokgsudung], [active], [User]
+                  FROM [BB].[dbo].[bb_Oil_Nhaptay]
+                  WHERE [Barcode_left_7bit] = @barcode
+                  ORDER BY [Indat] DESC, [Intime] DESC",
+                connection);
+            cmd.Parameters.AddWithValue("@barcode", normalizedBarcode);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                records.Add(new BbOil
+                {
+                    ID = reader.GetInt32(0),
+                    Indat = reader.IsDBNull(1) ? null : reader.GetString(1),
+                    Intime = reader.IsDBNull(2) ? null : reader.GetString(2),
+                    Result_ActiveUp = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    HMI_Barcode = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    Barcode_left_7bit = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    Sokgtem = reader.IsDBNull(6) ? null : reader.GetDouble(6),
+                    Sokgsudung = reader.IsDBNull(7) ? null : reader.GetDouble(7),
+                    Active = reader.IsDBNull(8) ? null : reader.GetString(8),
+                    User = reader.IsDBNull(9) ? null : reader.GetString(9)
+                });
+            }
+        }
+
+        using var workbook = new XLWorkbook();
+        var displayName = OilTypes.GetDisplayName(normalizedBarcode);
+        // Excel sheet name: max 31 chars, không chứa \ / ? * [ ]
+        var sheetName = Regex.Replace(displayName, @"[\\/?*\[\]]", "_");
+        if (sheetName.Length > 31) sheetName = sheetName.Substring(0, 31);
+        var ws = workbook.Worksheets.Add(sheetName);
+
+        var headers = new[]
+        {
+            "ID", "Ngày nhập", "Thời gian", "Result ActiveUp",
+            "HMI Barcode", "Barcode 7bit", "Số kg tem", "Số kg sử dụng",
+            "Active", "User"
+        };
+        for (int i = 0; i < headers.Length; i++)
+        {
+            ws.Cell(1, i + 1).Value = headers[i];
+        }
+        var headerRange = ws.Range(1, 1, 1, headers.Length);
+        headerRange.Style.Font.Bold = true;
+        headerRange.Style.Fill.BackgroundColor = XLColor.FromHtml("#212529");
+        headerRange.Style.Font.FontColor = XLColor.White;
+        headerRange.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+        headerRange.Style.Border.BottomBorder = XLBorderStyleValues.Thin;
+
+        int row = 2;
+        foreach (var rec in records)
+        {
+            // Cap sokgsudung tối đa bằng Sokgtem cho từng dòng (giống hiển thị bảng)
+            double? displaySokgsudung = rec.Sokgsudung;
+            if (displaySokgsudung.HasValue && rec.Sokgtem.HasValue && displaySokgsudung.Value > rec.Sokgtem.Value)
+            {
+                displaySokgsudung = rec.Sokgtem;
+            }
+
+            ws.Cell(row, 1).Value = rec.ID;
+            ws.Cell(row, 2).Value = rec.Indat ?? string.Empty;
+            ws.Cell(row, 3).Value = rec.Intime ?? string.Empty;
+            ws.Cell(row, 4).Value = rec.Result_ActiveUp ?? string.Empty;
+            ws.Cell(row, 5).Value = rec.HMI_Barcode ?? string.Empty;
+            ws.Cell(row, 6).Value = rec.Barcode_left_7bit ?? string.Empty;
+            if (rec.Sokgtem.HasValue) ws.Cell(row, 7).Value = rec.Sokgtem.Value;
+            if (displaySokgsudung.HasValue) ws.Cell(row, 8).Value = displaySokgsudung.Value;
+            ws.Cell(row, 9).Value = rec.Active ?? string.Empty;
+            ws.Cell(row, 10).Value = rec.User ?? string.Empty;
+            row++;
+        }
+
+        ws.Column(7).Style.NumberFormat.Format = "#,##0.00";
+        ws.Column(8).Style.NumberFormat.Format = "#,##0.00";
+        ws.Columns().AdjustToContents();
+        ws.SheetView.FreezeRows(1);
+
+        using var stream = new MemoryStream();
+        workbook.SaveAs(stream);
+
+        var fileName = $"BB_Oil_{normalizedBarcode}_{DateTime.Now:yyyyMMdd_HHmmss}.xlsx";
+        return File(stream.ToArray(),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            fileName);
     }
 
     private static void LoadBarcodeList(OilViewModel viewModel, string? selectedBarcode)

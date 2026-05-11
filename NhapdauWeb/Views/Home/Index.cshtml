@@ -93,6 +93,16 @@
         </div>
     </div>
 
+    <!-- Toolbar: Tải Excel -->
+    <div class="d-flex justify-content-end mb-3 animate-fade-in-up animate-delay-2">
+        <a class="btn btn-success"
+           asp-action="ExportExcel"
+           asp-route-selectedBarcode="@Model.SelectedBarcode"
+           title="Tải toàn bộ dữ liệu của @NhapdauWeb.Models.OilTypes.GetDisplayName(Model.SelectedBarcode) ra file Excel">
+            <i class="bi bi-file-earmark-excel-fill me-1"></i> Tải Excel
+        </a>
+    </div>
+
     <!-- Data Table -->
     <div class="table-scroll-container animate-fade-in-up animate-delay-3">
         <div class="table-scroll-wrapper">
